@@ -123,8 +123,12 @@ class Device_Manager():
             devices = self.cds
         return devices.values()
 
-    def snapshot(self, option):
+    def snapshot(self, option=None):
         """output all processes of some given set of queues"""
+
+        if option is None:
+            option = verify_input("Select r, p, d, c: ", lambda o: o in "rpdc")
+
         output=""
         if option == 'r':
             header = "\tPID"
@@ -141,7 +145,7 @@ class Device_Manager():
         MAX_LINES = 23
         # only print MAX_LINES lines at a time, and reiterate the header
         for line in output.split("\n"):
-            if line: # skip the blank final/only line that keeps printing the header and itself
+            if line: # skip the blank line that's always at the end
                 if line_count == 0:
                     print(header)
                     line_count+=1
@@ -152,6 +156,8 @@ class Device_Manager():
                     line_count=0
 
 DEVICE_PREFIXES = Device_Manager.DEVICE_PREFIXES
+SNAPSHOT_OPTIONS = "r"+DEVICE_PREFIXES
+
 
 # keep asking until the user provides acceptable input
 def verify_input(prompt, is_correct, print_error=None):
@@ -161,25 +167,13 @@ def verify_input(prompt, is_correct, print_error=None):
     else:
         # optional error message, can use input
         if print_error:
-            print(print_error(inp))
+            # print_error is responsible for printing the message so I have the option to not print one based on inp
+            print_error(inp)
         # ask again and return that result
         return verify_input(prompt, is_correct, print_error)
 
 # one of the lengthier input verifiers, recognizes commands
-def is_command(command):
-    SNAPSHOT_OPTIONS = "r"+DEVICE_PREFIXES
-    COMMANDS = "At"
 
-    if len(command) == 1 and command in COMMANDS:
-        return True
-    elif len(command) == 2 and (command[0] == 'S' and command[1] in SNAPSHOT_OPTIONS):
-        # snapshot
-        return True
-    elif len(command) >=2 and command[0].lower() in DEVICE_PREFIXES and command[1:].isdigit():
-        # device name
-        return True
-    else:
-        return False
 
 
 def main():
@@ -190,19 +184,28 @@ def main():
         return int(verify_input(message, lambda n: n.isdigit()))
 
     manager = Device_Manager(get_int("Printers: "), get_int("Disks: "), get_int("CDs: "))
-
+    COMMANDS = {'A': manager.new_process, 't': manager.terminate, 'S': manager.snapshot}
 
     #running
+    def is_command(command):
+        if len(command) == 1 and command in COMMANDS:
+            return True
+        elif len(command) == 2 and (command[0] == 'S' and command[1] in SNAPSHOT_OPTIONS):
+            # snapshot
+            return True
+        elif len(command) >=2 and command[0].lower() in DEVICE_PREFIXES and command[1:].isdigit():
+            # device name
+            return True
+        else:
+            return False
     def unrecognized(command):
         # for printing an error message
         # skip this for blank input
         if command and not command.isspace():
-            return "'"+command+"' is not a recognized command."
-        else:
-            return ""
+            print("'"+command+"' is not a recognized command.")
 
     while True:
-        signal = verify_input("$ ", is_command, unrecognized)
+        signal = verify_input("", is_command, unrecognized)
         # if there are >=10 devices of a single type, the name could be at least 3 characters
         if len(signal) >= 2:
             # is_command only accepts two-char strings beginning S so it must be the right length
@@ -228,13 +231,8 @@ def main():
                     else:
                         print("No process in CPU.")
 
-        else: # signal in "At"
-            if signal == 't':
-                # terminate current CPU process
-                manager.terminate()
-            elif signal == 'A':
-                # queue new process
-                manager.new_process()
+        else: # signal in COMMANDS
+            COMMANDS[signal]()
 
 if __name__ == '__main__':
     main()
