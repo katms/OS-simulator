@@ -26,7 +26,10 @@ class Device_Queue():
         else:
             # make sure r/w is lowercase
             rw = verify_input("R/W: ", lambda i: i.lower() in "rw").lower()
-        length = verify_input("File length: ", lambda i: i.isdigit())
+        if rw == "w":
+            length = verify_input("File length: ", lambda i: i.isdigit())
+        else:
+            length = "-"
 
         self.queue.append((process, filename, memstart, rw, length))
 
@@ -202,7 +205,7 @@ def main():
         # for printing an error message
         # skip this for blank input
         if command and not command.isspace():
-            print("'"+command+"' is not a recognized command.")
+            print("'"+command.strip()+"' is not a recognized command.")
 
     while True:
         signal = verify_input("", is_command, unrecognized)
