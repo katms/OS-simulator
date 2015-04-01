@@ -1,6 +1,15 @@
 """
 Katherine Sullivan
-OS hw #1
+OS hw #2
+
+Todo:
+disk scheduling algorithm
+input #cylinders for each disk
+disk requests need a cylinder
+input history parameter alpha
+PCB also has: tau, previous burst time,
+at every interrupt, query timer
+Snapshot prints out all of these things too
 """
 
 class Device_Queue():
@@ -175,21 +184,20 @@ def verify_input(prompt, is_correct, print_error=None):
         # ask again and return that result
         return verify_input(prompt, is_correct, print_error)
 
-# one of the lengthier input verifiers, recognizes commands
+def get_int(message):
+    # handles getting and parsing an integer
+    return int(verify_input(message, lambda n: n.isdigit()))
 
 
 
 def main():
 
     # sys_gen
-    def get_int(message):
-        # handles getting and parsing an integer
-        return int(verify_input(message, lambda n: n.isdigit()))
-
     manager = Device_Manager(get_int("Printers: "), get_int("Disks: "), get_int("CDs: "))
     COMMANDS = {'A': manager.new_process, 't': manager.terminate, 'S': manager.snapshot}
 
-    #running
+    # running
+    # one of the lengthier input verifiers, recognizes commands
     def is_command(command):
         if len(command) == 1 and command in COMMANDS:
             return True
