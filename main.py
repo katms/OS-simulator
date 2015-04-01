@@ -4,12 +4,15 @@ OS hw #2
 
 Todo:
 disk scheduling algorithm
-input #cylinders for each disk
-disk requests need a cylinder
 input history parameter alpha
 PCB also has: tau, previous burst time,
 at every interrupt, query timer
 Snapshot prints out all of these things too
+
+Mostly done, see todos:
+input #cylinders for each disk
+disk requests need a cylinder
+
 """
 
 class Device_Queue():
@@ -18,6 +21,14 @@ class Device_Queue():
         # so far the name's only real purpose is in determining if this is a printer
         self.name = name
         self.queue = []
+
+        if "d" in self.name:
+            # todo: check with Schweitzer that there can't be zero cylinders
+            self.cylinders = get_int("Cylinders in disk #{}: ".format(self.name[1:]), lambda c: c > 0)
+        else:
+            # I guess I don't actually need this, but consistency or something
+            # also don't switch to using inheritance, think about how enqueue() would work if you did
+            self.cylinders = 0
 
     def deque(self):
         if self.queue:
@@ -40,6 +51,11 @@ class Device_Queue():
         else:
             length = "-"
 
+        if 'd' in self.name:
+            # todo: do we need to do anything with this information? or was I just supposed to ask for it
+            # todo: also should the cylinders be numbered [0, cylinders) or [1, cylinders]
+            cylinders = verify_input("Cylinder: ", lambda c: c.isdigit() and int(c) < self.cylinders)
+
         self.queue.append((process, filename, memstart, rw, length))
 
     def __bool__(self):
@@ -57,7 +73,12 @@ class Device_Queue():
         # and then I noticed the same code aligns differently depending where I run it
         # and then I gave up
         # this combination of tabs works on at least three mediums, including eniac
-        res = '-'+self.name+'-\n'
+        res = '-'+self.name+'-'
+        if 'd' in self.name:
+            # todo: again, does this go here or not
+            res += "\tCylinders: {}\n".format(self.cylinders)
+        else:
+            res += '\n'
         for process in self.queue:
             line = "\t"+process[0]+"\t"+process[1]+"\t\t"+process[2]+"\t\t"+process[3]+"\t"+process[4]+'\n'
             res+=line
@@ -184,9 +205,10 @@ def verify_input(prompt, is_correct, print_error=None):
         # ask again and return that result
         return verify_input(prompt, is_correct, print_error)
 
-def get_int(message):
+def get_int(message, additional=lambda n:True):
     # handles getting and parsing an integer
-    return int(verify_input(message, lambda n: n.isdigit()))
+    # optional second test - evaluates an integer, not a string
+    return int(verify_input(message, lambda n: n.isdigit() and additional(int(n))))
 
 
 
