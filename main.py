@@ -18,8 +18,8 @@ disk requests need a cylinder
 class PCB(object):
     pid = 1
     # leaving these here for now but I might move alpha
-    alpha = None
-    default_tau = None
+    ALPHA = None
+    DEFAULT_TAU = None
 
     # todo: ask for clarification of "systems average total CPU time of completed processes" but I think I'll need these and a destructor
     total_CPU_time = 0
@@ -28,12 +28,28 @@ class PCB(object):
         self.id = str(PCB.pid)
         PCB.pid += 1
 
-        self.tau = PCB.default_tau
+        self.tau = PCB.DEFAULT_TAU
 
         self.CPU_time = 0
 
         # will need to average these... although maybe total_CPU_time + 1 variable would suffice
         self.burst_lengths = []
+
+    def compute_tau(self):
+        t = get_type("Actual CPU burst length: ")
+        # todo: pick one of these
+        self.burst_lengths.append(t)
+        self.CPU_time += t
+        self.tau = PCB.ALPHA*t + (1-PCB.ALPHA)*self.tau
+
+    def __str__(self):
+        # todo: will probably need more info now
+        return str(self.id)
+
+    def __del__(self):
+        PCB.total_CPU_time += self.CPU_time
+        PCB.terminated += 1
+        # super().__del__()
 
 
 class Device_Queue():
@@ -101,7 +117,7 @@ class Device_Queue():
         else:
             res += '\n'
         for process in self.queue:
-            line = "\t"+process[0]+"\t"+process[1]+"\t\t"+process[2]+"\t\t"+process[3]+"\t"+process[4]+'\n'
+            line = "\t"+str(process[0])+"\t"+process[1]+"\t\t"+process[2]+"\t\t"+process[3]+"\t"+process[4]+'\n'
             res+=line
         return res
 
@@ -120,9 +136,6 @@ class Device_Manager():
         # the front is considered the process in the CPU
         self.ready_queue = []
 
-        # incrementing process ID
-        self.pid=1
-
         # device queues are mapped to integers to ensure they print in numerical order
         # that was important right
         for n in range(1, printers+1):
@@ -137,8 +150,7 @@ class Device_Manager():
     def new_process(self):
         # store pid as a string because so far
         # there's no reason I should have to do this later on whenever I use it
-        self.ready_queue.append(str(self.pid))
-        self.pid+=1
+        self.ready_queue.append(PCB())
 
     def terminate(self):
         # terminate current process
@@ -187,7 +199,7 @@ class Device_Manager():
         if option == 'r':
             header = "\tPID"
             for process in self.ready_queue:
-                output += ('\t'+process+'\n')
+                output += ('\t'+str(process)+'\n')
         else:
 
             for device_queue in self.get_all(option):
@@ -206,7 +218,7 @@ class Device_Manager():
                 print(line)
                 line_count+=1
                 if line_count >= MAX_LINES:
-                    input("Press enter for more")
+                    input("Press enter for more") # 24th line
                     line_count=0
 
 DEVICE_PREFIXES = Device_Manager.DEVICE_PREFIXES
@@ -230,7 +242,7 @@ def get_type(message, typ=int, additional=lambda n:True):
     # handles getting and parsing an integer
     # optional second test - evaluates an integer, not a string
     def can_convert(string):
-        """returns if"""
+        """returns if string can be converted to the given type"""
         try: typ(string)
         except ValueError: return False
         else: return True
@@ -239,6 +251,7 @@ def get_type(message, typ=int, additional=lambda n:True):
 
 
 def letter_of(prompt, master_string):
+    """"Accepts a single character (case insensitive) from master string and automatically converts it to lowercase"""
     def letter(ch):
         return len(ch) == 1 and ch.lower() in master_string.lower()
     return verify_input(prompt, letter).lower()
@@ -250,7 +263,10 @@ def main():
     manager = Device_Manager(get_type("Printers: "), get_type("Disks: "), get_type("CDs: "))
     COMMANDS = {'A': manager.new_process, 't': manager.terminate, 'S': manager.snapshot}
 
-    PCB.alpha = get_type("History parameter (alpha): ", float, lambda a: 0 <= a <= 1)
+    # this is completely valid Pycharm why do you think the 2nd argument should be an int
+    # no I am not changing the prototype and then adding this argument to literally every other time this gets called
+    PCB.ALPHA = get_type("History parameter (alpha): ", float, lambda a: 0 <= a <= 1)
+    PCB.DEFAULT_TAU = get_type("Initial burst estimate: ")
 
     # running
     # one of the lengthier input verifiers, recognizes commands
@@ -294,7 +310,9 @@ def main():
                 else:
                     # device request
                     if manager.ready_queue:
-                        device.enqueue(manager.ready_queue.pop(0))
+                        current_process = manager.ready_queue.pop(0)
+                        current_process.compute_tau()
+                        device.enqueue(current_process)
                     else:
                         print("No process in CPU.")
 
