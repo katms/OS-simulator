@@ -15,6 +15,27 @@ disk requests need a cylinder
 
 """
 
+class PCB(object):
+    pid = 1
+    # leaving these here for now but I might move alpha
+    alpha = None
+    default_tau = None
+
+    # todo: ask for clarification of "systems average total CPU time of completed processes" but I think I'll need these and a destructor
+    total_CPU_time = 0
+    terminated = 0
+    def __init__(self):
+        self.id = str(PCB.pid)
+        PCB.pid += 1
+
+        self.tau = PCB.default_tau
+
+        self.CPU_time = 0
+
+        # will need to average these... although maybe total_CPU_time + 1 variable would suffice
+        self.burst_lengths = []
+
+
 class Device_Queue():
     """Manages the process queue for a single device."""
     def __init__(self, name):
@@ -24,7 +45,7 @@ class Device_Queue():
 
         if "d" in self.name:
             # todo: check with Schweitzer that there can't be zero cylinders
-            self.cylinders = get_int("Cylinders in disk #{}: ".format(self.name[1:]), lambda c: c > 0)
+            self.cylinders = get_type("Cylinders in disk #{}: ".format(self.name[1:]), int, lambda c: c > 0)
         else:
             # I guess I don't actually need this, but consistency or something
             # also don't switch to using inheritance, think about how enqueue() would work if you did
@@ -45,7 +66,7 @@ class Device_Queue():
             rw = "w"
         else:
             # make sure r/w is lowercase
-            rw = verify_input("R/W: ", lambda i: i.lower() in "rw").lower()
+            rw = letter_of("R/W: ", "rw") #verify_input("R/W: ", lambda i: letter_of("rw")(i.lower())).lower()
         if rw == "w":
             length = verify_input("File length: ", lambda i: i.isdigit())
         else:
@@ -54,7 +75,7 @@ class Device_Queue():
         if 'd' in self.name:
             # todo: do we need to do anything with this information? or was I just supposed to ask for it
             # todo: also should the cylinders be numbered [0, cylinders) or [1, cylinders]
-            cylinders = verify_input("Cylinder: ", lambda c: c.isdigit() and int(c) < self.cylinders)
+            cylinders = verify_input("Cylinder: ", int, lambda c: c.isdigit() and int(c) < self.cylinders)
 
         self.queue.append((process, filename, memstart, rw, length))
 
@@ -160,13 +181,13 @@ class Device_Manager():
         """output all processes of some given set of queues"""
 
         if option is None:
-            option = verify_input("Select r, p, d, c: ", lambda o: o in "rpdc")
+            option = letter_of("Select r, p, d, c: ", DEVICE_PREFIXES) #verify_input("Select r, p, d, c: ", lambda o: letter_of(DEVICE_PREFIXES)(o.lower())).lower()
 
         output=""
         if option == 'r':
             header = "\tPID"
             for process in self.ready_queue:
-                output+=('\t'+process+'\n')
+                output += ('\t'+process+'\n')
         else:
 
             for device_queue in self.get_all(option):
@@ -205,18 +226,31 @@ def verify_input(prompt, is_correct, print_error=None):
         # ask again and return that result
         return verify_input(prompt, is_correct, print_error)
 
-def get_int(message, additional=lambda n:True):
+def get_type(message, typ=int, additional=lambda n:True):
     # handles getting and parsing an integer
     # optional second test - evaluates an integer, not a string
-    return int(verify_input(message, lambda n: n.isdigit() and additional(int(n))))
+    def can_convert(string):
+        """returns if"""
+        try: typ(string)
+        except ValueError: return False
+        else: return True
 
+    return typ(verify_input(message, lambda n: can_convert(n) and additional(typ(n))))
+
+
+def letter_of(prompt, master_string):
+    def letter(ch):
+        return len(ch) == 1 and ch.lower() in master_string.lower()
+    return verify_input(prompt, letter).lower()
 
 
 def main():
 
     # sys_gen
-    manager = Device_Manager(get_int("Printers: "), get_int("Disks: "), get_int("CDs: "))
+    manager = Device_Manager(get_type("Printers: "), get_type("Disks: "), get_type("CDs: "))
     COMMANDS = {'A': manager.new_process, 't': manager.terminate, 'S': manager.snapshot}
+
+    PCB.alpha = get_type("History parameter (alpha): ", float, lambda a: 0 <= a <= 1)
 
     # running
     # one of the lengthier input verifiers, recognizes commands
@@ -226,7 +260,7 @@ def main():
         elif len(command) == 2 and (command[0] == 'S' and command[1] in SNAPSHOT_OPTIONS):
             # snapshot
             return True
-        elif len(command) >=2 and command[0].lower() in DEVICE_PREFIXES and command[1:].isdigit():
+        elif len(command) >= 2 and command[0].lower() in DEVICE_PREFIXES and command[1:].isdigit():
             # device name
             return True
         else:
