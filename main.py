@@ -4,63 +4,78 @@ OS hw #2
 
 Todo:
 disk scheduling algorithm
-input history parameter alpha
-PCB also has: tau, previous burst time,
-at every interrupt, query timer
-Snapshot prints out all of these things too
+CPU scheduling
+accounting
+Snapshot prints out all of these new things too?
 
 Mostly done, see todos:
 input #cylinders for each disk
 disk requests need a cylinder
-
+input history parameter alpha
+PCB also has: tau, previous burst time,
+at every interrupt, query timer
 """
 
 class PCB(object):
-    pid = 1
+    _pid = 1
     # leaving these here for now but I might move alpha
-    ALPHA = None
+    ALPHA = -1
     DEFAULT_TAU = None
 
-    # todo: ask for clarification of "systems average total CPU time of completed processes" but I think I'll need these and a destructor
+    HEADER = "\t".join(("\tPID", "Total", "Avg"))
+
     total_CPU_time = 0
     terminated = 0
     def __init__(self):
-        self.id = str(PCB.pid)
-        PCB.pid += 1
+        self.id = str(PCB._pid)
+        PCB._pid += 1
 
         self.tau = PCB.DEFAULT_TAU
 
         self.CPU_time = 0
+        self._nbursts = 0
 
-        # will need to average these... although maybe total_CPU_time + 1 variable would suffice
-        self.burst_lengths = []
 
-    def compute_tau(self):
-        t = get_type("Actual CPU burst length: ")
-        # todo: pick one of these
-        self.burst_lengths.append(t)
+    def end_burst(self):
+        # burst time must be positive
+        t = get_type("Actual CPU burst length: ", int, lambda b: b>0)
         self.CPU_time += t
+        self._nbursts += 1
+
         self.tau = PCB.ALPHA*t + (1-PCB.ALPHA)*self.tau
 
-    def __str__(self):
-        # todo: will probably need more info now
-        return str(self.id)
+    @property
+    def average_burst(self):
+        return self.CPU_time/self._nbursts if self.CPU_time > 0 else 0.0
 
-    def __del__(self):
+    def __str__(self):
+        return "\t".join((self.id, str(self.CPU_time), str(self.average_burst)))
+
+    def terminate(self):
+        # do not make this the destructor, it would get called for every process on Ctrl-C
+        self.end_burst()
+        print(PCB.HEADER.split('\t'))
+        # skip the first one because of that extra tab in front of PID
+        for label, item in zip(PCB.HEADER.split('\t')[1:], str(self).split('\t')):
+            print(label,item,sep=": ",end='\t')
+        print()
+        # todo: wait I need to print these somewhere don't I
         PCB.total_CPU_time += self.CPU_time
         PCB.terminated += 1
-        # super().__del__()
 
 
 class Device_Queue():
     """Manages the process queue for a single device."""
+
+    HEADER = "\t".join(("\tPID", "Filename", "Memstart", "R/W", "File length"))
+
     def __init__(self, name):
-        # so far the name's only real purpose is in determining if this is a printer
+        # so far the name's only real purpose is in determining if this is a printer or a disk
         self.name = name
         self.queue = []
 
         if "d" in self.name:
-            # todo: check with Schweitzer that there can't be zero cylinders
+            # todo: check that there can't be zero cylinders
             self.cylinders = get_type("Cylinders in disk #{}: ".format(self.name[1:]), int, lambda c: c > 0)
         else:
             # I guess I don't actually need this, but consistency or something
@@ -89,8 +104,8 @@ class Device_Queue():
             length = "-"
 
         if 'd' in self.name:
-            # todo: do we need to do anything with this information? or was I just supposed to ask for it
-            # todo: also should the cylinders be numbered [0, cylinders) or [1, cylinders]
+            # todo: store cylinders for algorithm
+            # todo: should the cylinders be numbered [0, cylinders) or [1, cylinders]
             cylinders = verify_input("Cylinder: ", int, lambda c: c.isdigit() and int(c) < self.cylinders)
 
         self.queue.append((process, filename, memstart, rw, length))
@@ -112,12 +127,13 @@ class Device_Queue():
         # this combination of tabs works on at least three mediums, including eniac
         res = '-'+self.name+'-'
         if 'd' in self.name:
-            # todo: again, does this go here or not
+            # todo: does cylinders get printed or not
             res += "\tCylinders: {}\n".format(self.cylinders)
         else:
             res += '\n'
         for process in self.queue:
-            line = "\t"+str(process[0])+"\t"+process[1]+"\t\t"+process[2]+"\t\t"+process[3]+"\t"+process[4]+'\n'
+            # todo: he wants the additional info here too
+            line = "\t"+process[0].id+"\t"+process[1]+"\t\t"+process[2]+"\t\t"+process[3]+"\t"+process[4]+'\n'
             res+=line
         return res
 
@@ -155,7 +171,7 @@ class Device_Manager():
     def terminate(self):
         # terminate current process
         if self.ready_queue:
-            self.ready_queue.pop(0)
+            self.ready_queue.pop(0).terminate()
         else:
             print("No processes running.")
 
@@ -197,7 +213,7 @@ class Device_Manager():
 
         output=""
         if option == 'r':
-            header = "\tPID"
+            header = PCB.HEADER
             for process in self.ready_queue:
                 output += ('\t'+str(process)+'\n')
         else:
@@ -205,7 +221,7 @@ class Device_Manager():
             for device_queue in self.get_all(option):
                 if device_queue:
                     output+=str(device_queue)
-            header = "\t".join(("\tPID", "Filename", "Memstart", "R/W", "File length"))
+            header = Device_Queue.HEADER
 
         line_count=0
         MAX_LINES = 23
@@ -311,7 +327,7 @@ def main():
                     # device request
                     if manager.ready_queue:
                         current_process = manager.ready_queue.pop(0)
-                        current_process.compute_tau()
+                        current_process.end_burst()
                         device.enqueue(current_process)
                     else:
                         print("No process in CPU.")
