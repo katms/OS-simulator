@@ -22,7 +22,7 @@ class PCB(object):
     ALPHA = -1
     DEFAULT_TAU = None
 
-    HEADER = "\t".join(("\tPID", "Total", "Avg"))
+    HEADER = "\t".join(("PID", "Total", "Avg"))
 
     total_CPU_time = 0
     terminated = 0
@@ -55,8 +55,7 @@ class PCB(object):
         # do not make this the destructor, it would get called for every process on Ctrl-C
         self.end_burst()
         print(PCB.HEADER.split('\t'))
-        # skip the first one because of that extra tab in front of PID
-        for label, item in zip(PCB.HEADER.split('\t')[1:], str(self).split('\t')):
+        for label, item in zip(PCB.HEADER.split('\t'), str(self).split('\t')):
             print(label,item,sep=": ",end='\t')
         print()
         # todo: wait I need to print these somewhere don't I
@@ -67,7 +66,8 @@ class PCB(object):
 class Device_Queue():
     """Manages the process queue for a single device."""
 
-    HEADER = "\t".join(("\tPID", "Filename", "Memstart", "R/W", "File length"))
+    # modified header to try to get it to fit the console
+    HEADER = "\t".join(("Filename", "Memstart", "R/W", "Length"))
 
     def __init__(self, name):
         # so far the name's only real purpose is in determining if this is a printer or a disk
@@ -125,7 +125,7 @@ class Device_Queue():
         # and then I noticed the same code aligns differently depending where I run it
         # and then I gave up
         # this combination of tabs works on at least three mediums, including eniac
-        res = '-'+self.name+'-'
+        res = ('-'*4)+self.name
         if 'd' in self.name:
             # todo: does cylinders get printed or not
             res += "\tCylinders: {}\n".format(self.cylinders)
@@ -133,16 +133,15 @@ class Device_Queue():
             res += '\n'
         for process in self.queue:
             # todo: he wants the additional info here too
-            line = "\t"+process[0].id+"\t"+process[1]+"\t\t"+process[2]+"\t\t"+process[3]+"\t"+process[4]+'\n'
-            res+=line
+            #           PCB                  Filename           Memstart            R/W         length
+            line = str(process[0])+"\t"+process[1]+"\t\t"+process[2]+"\t\t"+process[3]+"\t"+process[4]+'\n'
+            res += line
         return res
 
 
 # put in a class primarily because using globals was bothering me
 class Device_Manager():
-    """
-    Manages all queues (including CPU queue[s]) by device type
-    """
+    """Manages all queues (including CPU queue[s]) by device type"""
     DEVICE_PREFIXES = "pdc"
     def __init__(self, printers, disks, cds):
         self.printers = {}
@@ -221,7 +220,7 @@ class Device_Manager():
             for device_queue in self.get_all(option):
                 if device_queue:
                     output+=str(device_queue)
-            header = Device_Queue.HEADER
+            header = PCB.HEADER+'\t'+Device_Queue.HEADER
 
         line_count=0
         MAX_LINES = 23
