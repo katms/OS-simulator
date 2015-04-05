@@ -54,7 +54,6 @@ class PCB(object):
     def terminate(self):
         # do not make this the destructor, it would get called for every process on Ctrl-C
         self.end_burst()
-        print(PCB.HEADER.split('\t'))
         for label, item in zip(PCB.HEADER.split('\t'), str(self).split('\t')):
             print(label,item,sep=": ",end='\t')
         print()
@@ -214,7 +213,7 @@ class Device_Manager():
         if option == 'r':
             header = PCB.HEADER
             for process in self.ready_queue:
-                output += ('\t'+str(process)+'\n')
+                output += (str(process)+'\n')
         else:
 
             for device_queue in self.get_all(option):
