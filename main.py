@@ -4,28 +4,35 @@ OS hw #2
 
 Todo:
 disk scheduling algorithm
-CPU scheduling
-accounting
-Snapshot prints out all of these new things too?
 
-Mostly done, see todos:
+
+
+Mostly done, see todo:
+
 input #cylinders for each disk
 disk requests need a cylinder
+
+Done:
+CPU scheduling
 input history parameter alpha
 PCB also has: tau, previous burst time,
 at every interrupt, query timer
+accounting
+Snapshot prints out all of these new things too
 """
+
 
 class PCB(object):
     _pid = 1
     # leaving these here for now but I might move alpha
-    ALPHA = -1
+    ALPHA = None
     DEFAULT_TAU = None
 
     HEADER = "\t".join(("PID", "Total", "Avg"))
 
     total_CPU_time = 0
     terminated = 0
+
     def __init__(self):
         self.id = str(PCB._pid)
         PCB._pid += 1
@@ -35,10 +42,9 @@ class PCB(object):
         self.CPU_time = 0
         self._nbursts = 0
 
-
     def end_burst(self):
         # burst time must be positive
-        t = get_type("Actual CPU burst length: ", int, lambda b: b>0)
+        t = get_int("Actual CPU burst length: ", lambda b: b > 0)
         self.CPU_time += t
         self._nbursts += 1
 
@@ -53,13 +59,18 @@ class PCB(object):
 
     def terminate(self):
         # do not make this the destructor, it would get called for every process on Ctrl-C
+        # because that's how destructors work you idiot
         self.end_burst()
         for label, item in zip(PCB.HEADER.split('\t'), str(self).split('\t')):
-            print(label,item,sep=": ",end='\t')
+            print(label, item, sep=": ", end='\t')
         print()
         # todo: wait I need to print these somewhere don't I
         PCB.total_CPU_time += self.CPU_time
         PCB.terminated += 1
+
+    @staticmethod
+    def systems_average():
+        return PCB.total_CPU_time/PCB.terminated if PCB.total_CPU_time > 0 else 0.0
 
 
 class Device_Queue():
@@ -75,7 +86,7 @@ class Device_Queue():
 
         if "d" in self.name:
             # todo: check that there can't be zero cylinders
-            self.cylinders = get_type("Cylinders in disk #{}: ".format(self.name[1:]), int, lambda c: c > 0)
+            self.cylinders = get_int("Cylinders in disk #{}: ".format(self.name[1:]), lambda c: c > 0)
         else:
             # I guess I don't actually need this, but consistency or something
             # also don't switch to using inheritance, think about how enqueue() would work if you did
@@ -90,13 +101,13 @@ class Device_Queue():
     def enqueue(self, process):
         # prompt for additional arguments
         filename = input("Filename: ")
-        memstart = verify_input("Starting memory address: ",lambda i: i.isdigit())
+        memstart = verify_input("Starting memory address: ", lambda i: i.isdigit())
         # can only write to a printer
         if "p" in self.name:
             rw = "w"
         else:
             # make sure r/w is lowercase
-            rw = letter_of("R/W: ", "rw") #verify_input("R/W: ", lambda i: letter_of("rw")(i.lower())).lower()
+            rw = letter_of("R/W: ", "rw")
         if rw == "w":
             length = verify_input("File length: ", lambda i: i.isdigit())
         else:
@@ -108,6 +119,8 @@ class Device_Queue():
             cylinders = verify_input("Cylinder: ", int, lambda c: c.isdigit() and int(c) < self.cylinders)
 
         self.queue.append((process, filename, memstart, rw, length))
+        # sjf scheduling
+        self.queue.sort(key=lambda p: p[0].tau)
 
     def __bool__(self):
         return bool(self.queue)
@@ -116,7 +129,7 @@ class Device_Queue():
         # empty device queues don't print
         if not self.queue:
             return ""
-        # print every process in order in columns
+        # print every process in order, in columns
 
         # I'm just going to assume this is aligned with the header
         # because ensuring it would be really complicated
@@ -142,6 +155,7 @@ class Device_Queue():
 class Device_Manager():
     """Manages all queues (including CPU queue[s]) by device type"""
     DEVICE_PREFIXES = "pdc"
+
     def __init__(self, printers, disks, cds):
         self.printers = {}
         self.disks = {}
@@ -162,8 +176,6 @@ class Device_Manager():
             self.cds[n] = Device_Queue('c'+str(n))
 
     def new_process(self):
-        # store pid as a string because so far
-        # there's no reason I should have to do this later on whenever I use it
         self.ready_queue.append(PCB())
 
     def terminate(self):
@@ -181,7 +193,7 @@ class Device_Manager():
         index = int(name[1:])
 
         # so my IDE will stop warning me about this
-        device_type = {} # {}.get(k) -> None
+        device_type = {}  # {}.get(k) -> None
 
         if prefix == 'p':
             device_type = self.printers
@@ -207,9 +219,9 @@ class Device_Manager():
         """output all processes of some given set of queues"""
 
         if option is None:
-            option = letter_of("Select r, p, d, c: ", DEVICE_PREFIXES) #verify_input("Select r, p, d, c: ", lambda o: letter_of(DEVICE_PREFIXES)(o.lower())).lower()
+            option = letter_of("Select r, p, d, c: ", DEVICE_PREFIXES)
 
-        output=""
+        output = ""
         if option == 'r':
             header = PCB.HEADER
             for process in self.ready_queue:
@@ -218,22 +230,26 @@ class Device_Manager():
 
             for device_queue in self.get_all(option):
                 if device_queue:
-                    output+=str(device_queue)
+                    output += str(device_queue)
             header = PCB.HEADER+'\t'+Device_Queue.HEADER
 
-        line_count=0
+        line_count = 0
         MAX_LINES = 23
         # only print MAX_LINES lines at a time, and reiterate the header
-        for line in output.split("\n"):
-            if line: # skip the blank line that's always at the end
-                if line_count == 0:
-                    print(header)
-                    line_count+=1
-                print(line)
-                line_count+=1
-                if line_count >= MAX_LINES:
-                    input("Press enter for more") # 24th line
-                    line_count=0
+        for line in output.split("\n")[:-1]:  # skip the blank line that's always at the end
+            if line_count == 0:
+                print(header)
+                line_count += 1
+            print(line)
+            line_count += 1
+            if line_count >= MAX_LINES:
+                input("Press enter for more")  # 24th line
+                line_count = 0
+
+        if output:  # skip if the queue was empty
+            # shouldn't clash with the 24-line limit
+            print("Total CPU time: ", PCB.total_CPU_time, "Systems average: ", PCB.systems_average())
+
 
 DEVICE_PREFIXES = Device_Manager.DEVICE_PREFIXES
 SNAPSHOT_OPTIONS = "r"+DEVICE_PREFIXES
@@ -252,16 +268,9 @@ def verify_input(prompt, is_correct, print_error=None):
         # ask again and return that result
         return verify_input(prompt, is_correct, print_error)
 
-def get_type(message, typ=int, additional=lambda n:True):
-    # handles getting and parsing an integer
-    # optional second test - evaluates an integer, not a string
-    def can_convert(string):
-        """returns if string can be converted to the given type"""
-        try: typ(string)
-        except ValueError: return False
-        else: return True
-
-    return typ(verify_input(message, lambda n: can_convert(n) and additional(typ(n))))
+# moved back from get_type() to resolve a bug introduced by that function where it accepted negative numbers or -0
+def get_int(message, additional=lambda n: True):
+    return int(verify_input(message, lambda i: i.isdigit() and additional(int(i))))
 
 
 def letter_of(prompt, master_string):
@@ -274,13 +283,22 @@ def letter_of(prompt, master_string):
 def main():
 
     # sys_gen
-    manager = Device_Manager(get_type("Printers: "), get_type("Disks: "), get_type("CDs: "))
+    manager = Device_Manager(get_int("Printers: "), get_int("Disks: "), get_int("CDs: "))
     COMMANDS = {'A': manager.new_process, 't': manager.terminate, 'S': manager.snapshot}
 
-    # this is completely valid Pycharm why do you think the 2nd argument should be an int
-    # no I am not changing the prototype and then adding this argument to literally every other time this gets called
-    PCB.ALPHA = get_type("History parameter (alpha): ", float, lambda a: 0 <= a <= 1)
-    PCB.DEFAULT_TAU = get_type("Initial burst estimate: ")
+    # moved from get_type()
+    def is_alpha(a):
+        try:
+            f = float(a)
+        except:
+            # check that a can be converted to a float
+            return False
+        else:
+            # and is in [0,1]
+            return 0 <= f <= 1
+
+    PCB.ALPHA = float(verify_input("History parameter (alpha): ",is_alpha))
+    PCB.DEFAULT_TAU = get_int("Initial burst estimate: ")
 
     # running
     # one of the lengthier input verifiers, recognizes commands
@@ -295,6 +313,7 @@ def main():
             return True
         else:
             return False
+
     def unrecognized(command):
         # for printing an error message
         # skip this for blank input
@@ -330,7 +349,7 @@ def main():
                     else:
                         print("No process in CPU.")
 
-        else: # signal in COMMANDS
+        else:  # signal in COMMANDS
             COMMANDS[signal]()
 
 if __name__ == '__main__':
