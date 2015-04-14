@@ -119,8 +119,6 @@ class Device_Queue():
             cylinders = verify_input("Cylinder: ", int, lambda c: c.isdigit() and int(c) < self.cylinders)
 
         self.queue.append((process, filename, memstart, rw, length))
-        # sjf scheduling
-        self.queue.sort(key=lambda p: p[0].tau)
 
     def __bool__(self):
         return bool(self.queue)
@@ -250,6 +248,19 @@ class Device_Manager():
             # shouldn't clash with the 24-line limit
             print("Total CPU time: ", PCB.total_CPU_time, "Systems average: ", PCB.systems_average())
 
+    def return_PCB(self, pcb):
+        # todo: finish sjf with semi-burst handling
+        if self.ready_queue:
+            CPU_process = self.ready_queue[0]
+        else:
+            CPU_process = None
+        self.ready_queue.append(pcb)
+        # sjf scheduling
+        self.ready_queue.sort(key=lambda p: p.tau)
+        if CPU_process is not None and CPU_process is not self.ready_queue[0]:
+            print("Process preempted")
+
+
 
 DEVICE_PREFIXES = Device_Manager.DEVICE_PREFIXES
 SNAPSHOT_OPTIONS = "r"+DEVICE_PREFIXES
@@ -337,7 +348,7 @@ def main():
                     # device completion
                     if device:
                         pcb = device.deque()[0]
-                        manager.ready_queue.append(pcb)
+                        manager.return_PCB(pcb)
                     else:
                         print("Device queue is empty.")
                 else:
