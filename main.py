@@ -42,11 +42,17 @@ class PCB(object):
         self.CPU_time = 0
         self._nbursts = 0
 
+        # for CPU bursts that get preempted
+        self._preempted = 0
+
     def end_burst(self):
         # burst time must be positive
-        t = get_int("Actual CPU burst length: ", lambda b: b > 0)
+        # if the process was never preempted then _preempted=0
+        t = get_int("Actual CPU burst length: ", lambda b: b > 0) + self._preempted
         self.CPU_time += t
         self._nbursts += 1
+        # reset preempted
+        self._preempted = 0
 
         self.tau = PCB.ALPHA*t + (1-PCB.ALPHA)*self.tau
 
@@ -64,9 +70,11 @@ class PCB(object):
         for label, item in zip(PCB.HEADER.split('\t'), str(self).split('\t')):
             print(label, item, sep=": ", end='\t')
         print()
-        # todo: wait I need to print these somewhere don't I
         PCB.total_CPU_time += self.CPU_time
         PCB.terminated += 1
+
+    def preempt(self):
+        self._preempted = get_int("Running process preempted. Length of CPU burst thus far: ")
 
     @staticmethod
     def systems_average():
@@ -85,7 +93,6 @@ class Device_Queue():
         self.queue = []
 
         if "d" in self.name:
-            # todo: check that there can't be zero cylinders
             self.cylinders = get_int("Cylinders in disk #{}: ".format(self.name[1:]), lambda c: c > 0)
         else:
             # I guess I don't actually need this, but consistency or something
@@ -115,7 +122,7 @@ class Device_Queue():
 
         if 'd' in self.name:
             # todo: store cylinders for algorithm
-            # todo: should the cylinders be numbered [0, cylinders) or [1, cylinders]
+            # cylinders are numbered [0, cylinders)
             cylinders = verify_input("Cylinder: ", int, lambda c: c.isdigit() and int(c) < self.cylinders)
 
         self.queue.append((process, filename, memstart, rw, length))
@@ -142,7 +149,6 @@ class Device_Queue():
         else:
             res += '\n'
         for process in self.queue:
-            # todo: he wants the additional info here too
             #           PCB                  Filename           Memstart            R/W         length
             line = str(process[0])+"\t"+process[1]+"\t\t"+process[2]+"\t\t"+process[3]+"\t"+process[4]+'\n'
             res += line
@@ -246,10 +252,10 @@ class Device_Manager():
 
         if output:  # skip if the queue was empty
             # shouldn't clash with the 24-line limit
+            # todo: wait where did it say this needs the total (it does need avg)
             print("Total CPU time: ", PCB.total_CPU_time, "Systems average: ", PCB.systems_average())
 
     def return_PCB(self, pcb):
-        # todo: finish sjf with semi-burst handling
         if self.ready_queue:
             CPU_process = self.ready_queue[0]
         else:
@@ -258,7 +264,7 @@ class Device_Manager():
         # sjf scheduling
         self.ready_queue.sort(key=lambda p: p.tau)
         if CPU_process is not None and CPU_process is not self.ready_queue[0]:
-            print("Process preempted")
+            CPU_process.preempt()
 
 
 
