@@ -92,12 +92,6 @@ class Device_Queue():
         self.name = name
         self.queue = []
 
-        if "d" in self.name:
-            self.cylinders = get_int("Cylinders in disk #{}: ".format(self.name[1:]), lambda c: c > 0)
-        else:
-            # I guess I don't actually need this, but consistency or something
-            # also don't switch to using inheritance, think about how enqueue() would work if you did
-            self.cylinders = 0
 
     def deque(self):
         if self.queue:
@@ -120,11 +114,6 @@ class Device_Queue():
         else:
             length = "-"
 
-        if 'd' in self.name:
-            # todo: store cylinders for algorithm
-            # cylinders are numbered [0, cylinders)
-            cylinders = verify_input("Cylinder: ", int, lambda c: c.isdigit() and int(c) < self.cylinders)
-
         self.queue.append((process, filename, memstart, rw, length))
 
     def __bool__(self):
@@ -143,8 +132,8 @@ class Device_Queue():
         # and then I gave up
         # this combination of tabs works on at least three mediums, including eniac
         res = ('-'*4)+self.name
+        # leaving this here to simplify what str(Disk) would be otherwise
         if 'd' in self.name:
-            # todo: does cylinders get printed or not
             res += "\tCylinders: {}\n".format(self.cylinders)
         else:
             res += '\n'
@@ -153,6 +142,21 @@ class Device_Queue():
             line = str(process[0])+"\t"+process[1]+"\t\t"+process[2]+"\t\t"+process[3]+"\t"+process[4]+'\n'
             res += line
         return res
+
+
+class Disk(Device_Queue):
+    HEAD = None
+    def __init__(self, name):
+        super().__init__(name)
+        self.buffered_requests = []
+        if "d" in self.name:
+            self.cylinders = get_int("Cylinders in disk #{}: ".format(self.name[1:]), lambda c: c > 0)
+
+    def enqueue(self, process):
+        super().enqueue(process)
+        # cylinders are numbered [0, cylinders)
+        cylinders = verify_input("Cylinder: ", lambda c: c.isdigit() and int(c) < self.cylinders)
+
 
 
 # put in a class primarily because using globals was bothering me
@@ -174,7 +178,7 @@ class Device_Manager():
             self.printers[n] = Device_Queue('p'+str(n))
 
         for n in range(1, disks+1):
-            self.disks[n] = Device_Queue('d'+str(n))
+            self.disks[n] = Disk('d'+str(n))
 
         for n in range(1, cds+1):
             self.cds[n] = Device_Queue('c'+str(n))
@@ -210,7 +214,7 @@ class Device_Manager():
     def get_all(self, prefix):
         # guaranteed: prefix is in "pdc"
         # get all device queues of one type
-        devices = ()
+        devices = {}
         if prefix == 'p':
             devices = self.printers
         elif prefix == 'd':
@@ -261,7 +265,7 @@ class Device_Manager():
         else:
             CPU_process = None
         self.ready_queue.append(pcb)
-        # sjf scheduling
+        # preemptive sjf scheduling
         self.ready_queue.sort(key=lambda p: p.tau)
         if CPU_process is not None and CPU_process is not self.ready_queue[0]:
             CPU_process.preempt()
