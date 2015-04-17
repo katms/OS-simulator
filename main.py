@@ -3,14 +3,8 @@ Katherine Sullivan
 OS hw #2
 
 Todo:
-disk scheduling algorithm
+print Disk queues
 
-
-
-Mostly done, see todo:
-
-input #cylinders for each disk
-disk requests need a cylinder
 
 Done:
 CPU scheduling
@@ -19,6 +13,9 @@ PCB also has: tau, previous burst time,
 at every interrupt, query timer
 accounting
 Snapshot prints out all of these new things too
+disk scheduling algorithm
+input #cylinders for each disk
+disk requests need a cylinder
 """
 
 
@@ -61,7 +58,9 @@ class PCB(object):
         return self.CPU_time/self._nbursts if self.CPU_time > 0 else 0.0
 
     def __str__(self):
-        return "\t".join((self.id, str(self.CPU_time), str(self.average_burst)))
+        # make sure average fits in its column
+        rounded = round(self.average_burst, 2)
+        return "\t".join((self.id, str(self.CPU_time), str(rounded)))
 
     def terminate(self):
         # do not make this the destructor, it would get called for every process on Ctrl-C
@@ -92,7 +91,6 @@ class Device_Queue():
         self.name = name
         self.queue = []
 
-
     def deque(self):
         if self.queue:
             return self.queue.pop(0)
@@ -100,6 +98,9 @@ class Device_Queue():
             return None
 
     def enqueue(self, process):
+        self.queue.append(self.file_info(process))
+
+    def file_info(self, process):
         # prompt for additional arguments
         filename = input("Filename: ")
         memstart = verify_input("Starting memory address: ", lambda i: i.isdigit())
@@ -113,8 +114,7 @@ class Device_Queue():
             length = verify_input("File length: ", lambda i: i.isdigit())
         else:
             length = "-"
-
-        self.queue.append((process, filename, memstart, rw, length))
+        return process, filename, memstart, rw, length
 
     def __bool__(self):
         return bool(self.queue)
@@ -131,32 +131,61 @@ class Device_Queue():
         # and then I noticed the same code aligns differently depending where I run it
         # and then I gave up
         # this combination of tabs works on at least three mediums, including eniac
-        res = ('-'*4)+self.name
-        # leaving this here to simplify what str(Disk) would be otherwise
-        if 'd' in self.name:
-            res += "\tCylinders: {}\n".format(self.cylinders)
-        else:
-            res += '\n'
+        res = ('-'*4)+self.name+'\n'
         for process in self.queue:
             #           PCB                  Filename           Memstart            R/W         length
-            line = str(process[0])+"\t"+process[1]+"\t\t"+process[2]+"\t\t"+process[3]+"\t"+process[4]+'\n'
-            res += line
+            line = str(process[0])+"\t"+process[1]+"\t\t"+process[2]+"\t\t"+process[3]+"\t"+process[4]
+            res += line+'\n'
         return res
 
 
 class Disk(Device_Queue):
-    HEAD = None
+    """Device queue that implements FSCAN"""
     def __init__(self, name):
         super().__init__(name)
+        self.cylinders = get_int("Cylinders in disk #{}: ".format(self.name[1:]), lambda c: c > 0)
+
+        # self.buffered_requests is ignored until self.queue is empty
         self.buffered_requests = []
-        if "d" in self.name:
-            self.cylinders = get_int("Cylinders in disk #{}: ".format(self.name[1:]), lambda c: c > 0)
+        # start wherever
+        self.head = 0
 
     def enqueue(self, process):
-        super().enqueue(process)
         # cylinders are numbered [0, cylinders)
-        cylinders = verify_input("Cylinder: ", lambda c: c.isdigit() and int(c) < self.cylinders)
+        request = self.file_info(process)
+        cylinders = get_int("Cylinder: ", lambda c: c < self.cylinders)
+        self.buffered_requests.append(request + (cylinders,))
 
+    def deque(self):
+        # FSCAN
+        if self.queue:  # if disk is already seeking
+            self.head = self.queue[0][-1]
+            return super().deque()
+        else:
+            # else begin processing newer requests
+            if not self.buffered_requests:
+                return None
+            else:
+                # freeze queue
+                # sort by head
+                def get_cylinder(item):
+                    return item[-1]
+                up = [x for x in self.buffered_requests if get_cylinder(x) >= self.head]
+                down = [x for x in self.buffered_requests if get_cylinder(x) < self.head]
+                up.sort(key=get_cylinder)
+                down.sort(key=get_cylinder, reverse=True)
+                self.queue = up + down
+                self.buffered_requests = []
+
+                return self.deque()
+
+    def __bool__(self):
+        return bool(self.queue) or bool(self.buffered_requests)
+
+    def __str__(self):
+        if not self:
+            return super().__str__()
+        res = ('-'*4) + self.name + '\n'
 
 
 # put in a class primarily because using globals was bothering me
@@ -271,7 +300,6 @@ class Device_Manager():
             CPU_process.preempt()
 
 
-
 DEVICE_PREFIXES = Device_Manager.DEVICE_PREFIXES
 SNAPSHOT_OPTIONS = "r"+DEVICE_PREFIXES
 
@@ -288,6 +316,7 @@ def verify_input(prompt, is_correct, print_error=None):
             print_error(inp)
         # ask again and return that result
         return verify_input(prompt, is_correct, print_error)
+
 
 # moved back from get_type() to resolve a bug introduced by that function where it accepted negative numbers or -0
 def get_int(message, additional=lambda n: True):
@@ -311,14 +340,14 @@ def main():
     def is_alpha(a):
         try:
             f = float(a)
-        except:
+        except ValueError:
             # check that a can be converted to a float
             return False
         else:
             # and is in [0,1]
             return 0 <= f <= 1
 
-    PCB.ALPHA = float(verify_input("History parameter (alpha): ",is_alpha))
+    PCB.ALPHA = float(verify_input("History parameter (alpha): ", is_alpha))
     PCB.DEFAULT_TAU = get_int("Initial burst estimate: ")
 
     # running
