@@ -133,9 +133,8 @@ class Device_Queue():
         # this combination of tabs works on at least three mediums, including eniac
         res = ('-'*4)+self.name+'\n'
         for process in self.queue:
-            #           PCB                  Filename           Memstart            R/W         length
-            line = str(process[0])+"\t"+process[1]+"\t\t"+process[2]+"\t\t"+process[3]+"\t"+process[4]
-            res += line+'\n'
+            line = aligned_string(process)+'\n'
+            res += line
         return res
 
 
@@ -185,7 +184,23 @@ class Disk(Device_Queue):
     def __str__(self):
         if not self:
             return super().__str__()
-        res = ('-'*4) + self.name + '\n'
+        res = ('-'*4)+self.name+'\t'+"#Cylinders: {}".format(self.cylinders)+'\n'
+
+        def align_with_cylinder(process):
+            return aligned_string(process) + '\t' + str(process[-1]) + '\n'
+
+        if self.queue:
+            res += "Seeking:\n"
+            for p in self.queue:
+                line = align_with_cylinder(p)
+                res += line
+
+        if self.buffered_requests:
+            res += "Buffered:\n"
+            for b in self.buffered_requests:
+                line = align_with_cylinder(b)
+                res += line
+        return res
 
 
 # put in a class primarily because using globals was bothering me
@@ -269,6 +284,8 @@ class Device_Manager():
                 if device_queue:
                     output += str(device_queue)
             header = PCB.HEADER+'\t'+Device_Queue.HEADER
+            if 'd' == option:
+                header += "\t"+"Cylinder"
 
         line_count = 0
         MAX_LINES = 23
@@ -328,6 +345,11 @@ def letter_of(prompt, master_string):
     def letter(ch):
         return len(ch) == 1 and ch.lower() in master_string.lower()
     return verify_input(prompt, letter).lower()
+
+
+def aligned_string(process):
+    #       PCB                  Filename           Memstart            R/W         length
+    return str(process[0])+"\t"+process[1]+"\t\t"+process[2]+"\t\t"+process[3]+"\t"+process[4]
 
 
 def main():
