@@ -347,6 +347,7 @@ def letter_of(prompt, master_string):
     return verify_input(prompt, letter).lower()
 
 
+# print I/O requests exactly like this for both disks and other devices
 def aligned_string(process):
     #       PCB                  Filename           Memstart            R/W         length
     return str(process[0])+"\t"+process[1]+"\t\t"+process[2]+"\t\t"+process[3]+"\t"+process[4]
@@ -358,19 +359,14 @@ def main():
     manager = Device_Manager(get_int("Printers: "), get_int("Disks: "), get_int("CDs: "))
     COMMANDS = {'A': manager.new_process, 't': manager.terminate, 'S': manager.snapshot}
 
-    # moved from get_type()
-    def is_alpha(a):
-        try:
-            f = float(a)
-        except ValueError:
-            # check that a can be converted to a float
-            return False
-        else:
-            # and is in [0,1]
-            return 0 <= f <= 1
+    # prevent any negative input, including '-0'
+    def get_float(message, require=lambda f: True):
+        def is_float(f):
+            return sum([f.count(d) for d in ".0123456789"]) == len(f) and f.count('.') <= 1
+        return float(verify_input(message, lambda f: is_float(f) and require(float(f))))
 
-    PCB.ALPHA = float(verify_input("History parameter (alpha): ", is_alpha))
-    PCB.DEFAULT_TAU = get_int("Initial burst estimate: ")
+    PCB.ALPHA = get_float("History parameter (alpha): ", lambda a: 0 <= a <= 1)
+    PCB.DEFAULT_TAU = get_float("Initial burst estimate: ")
 
     # running
     # one of the lengthier input verifiers, recognizes commands
