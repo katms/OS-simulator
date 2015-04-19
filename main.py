@@ -4,7 +4,7 @@ OS hw #2
 
 To fix:
 FSCAN should be in enqueue
-
+sjf/preempt on A
 """
 
 
@@ -144,28 +144,33 @@ class Disk(Device_Queue):
         cylinders = get_int("Cylinder: ", lambda c: c < self.cylinders)
         self.buffered_requests.append(request + (cylinders,))
 
+        if not self.queue: # this is the very first request
+            self._fscan()
+
     def deque(self):
-        # FSCAN
         if self.queue:  # if disk is already seeking
             self.head = self.queue[0][-1]
-            return super().deque()
-        else:
-            # else begin processing newer requests
-            if not self.buffered_requests:
-                return None
-            else:
-                # freeze queue
-                # sort by head
-                def get_cylinder(item):
-                    return item[-1]
-                up = [x for x in self.buffered_requests if get_cylinder(x) >= self.head]
-                down = [x for x in self.buffered_requests if get_cylinder(x) < self.head]
-                up.sort(key=get_cylinder)
-                down.sort(key=get_cylinder, reverse=True)
-                self.queue = up + down
-                self.buffered_requests = []
+            result = super().deque()
+            if not self.queue: # that was the last request
+                # freeze buffered_requests
+                self._fscan()
+            return result
 
-                return self.deque()
+        else: # assume both queues are empty
+            return super().deque()
+
+    def _fscan(self):
+        """freeze queue and sort requests"""
+
+        def get_cylinder(item):
+            return item[-1]
+
+        up = [x for x in self.buffered_requests if get_cylinder(x) >= self.head]
+        down = [x for x in self.buffered_requests if get_cylinder(x) < self.head]
+        up.sort(key=get_cylinder)
+        down.sort(key=get_cylinder, reverse=True)
+        self.queue = up + down
+        self.buffered_requests = []
 
     def __bool__(self):
         return super().__bool__() or bool(self.buffered_requests)
