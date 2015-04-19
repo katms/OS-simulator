@@ -2,20 +2,9 @@
 Katherine Sullivan
 OS hw #2
 
-Todo:
-print Disk queues
+To fix:
+FSCAN should be in enqueue
 
-
-Done:
-CPU scheduling
-input history parameter alpha
-PCB also has: tau, previous burst time,
-at every interrupt, query timer
-accounting
-Snapshot prints out all of these new things too
-disk scheduling algorithm
-input #cylinders for each disk
-disk requests need a cylinder
 """
 
 
@@ -179,7 +168,7 @@ class Disk(Device_Queue):
                 return self.deque()
 
     def __bool__(self):
-        return bool(self.queue) or bool(self.buffered_requests)
+        return super().__bool__() or bool(self.buffered_requests)
 
     def __str__(self):
         if not self:
@@ -271,7 +260,7 @@ class Device_Manager():
         """output all processes of some given set of queues"""
 
         if option is None:
-            option = letter_of("Select r, p, d, c: ", DEVICE_PREFIXES)
+            option = letter_of("Select r, p, d, c: ", SNAPSHOT_OPTIONS)
 
         output = ""
         if option == 'r':
@@ -362,7 +351,7 @@ def main():
     # prevent any negative input, including '-0'
     def get_float(message, require=lambda f: True):
         def is_float(f):
-            return sum([f.count(d) for d in ".0123456789"]) == len(f) and f.count('.') <= 1
+            return f.replace('.',"").isdigit() and f.count('.') <= 1
         return float(verify_input(message, lambda f: is_float(f) and require(float(f))))
 
     PCB.ALPHA = get_float("History parameter (alpha): ", lambda a: 0 <= a <= 1)
