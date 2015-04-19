@@ -2,9 +2,6 @@
 Katherine Sullivan
 OS hw #2
 
-To fix:
-FSCAN should be in enqueue
-sjf/preempt on A
 """
 
 
@@ -222,7 +219,7 @@ class Device_Manager():
             self.cds[n] = Device_Queue('c'+str(n))
 
     def new_process(self):
-        self.ready_queue.append(PCB())
+        self.add_to_ready_queue(PCB())
 
     def terminate(self):
         # terminate current process
@@ -299,7 +296,7 @@ class Device_Manager():
             # todo: wait where did it say this needs the total (it does need avg)
             print("Total CPU time: ", PCB.total_CPU_time, "Systems average: ", PCB.systems_average())
 
-    def return_PCB(self, pcb):
+    def add_to_ready_queue(self, pcb):
         if self.ready_queue:
             CPU_process = self.ready_queue[0]
         else:
@@ -399,7 +396,7 @@ def main():
                     # device completion
                     if device:
                         pcb = device.deque()[0]
-                        manager.return_PCB(pcb)
+                        manager.add_to_ready_queue(pcb)
                     else:
                         print("Device queue is empty.")
                 else:
