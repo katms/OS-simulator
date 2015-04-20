@@ -79,7 +79,7 @@ class Device_Queue():
 
     def deque(self):
         if self.queue:
-            return self.queue.pop(0)
+            return self.queue.pop(0)[0]
         else:
             return None
 
@@ -170,6 +170,9 @@ class Disk(Device_Queue):
         self.buffered_requests = []
 
     def __bool__(self):
+        # now that I've modified Disk to switch queue and b_r
+        # whenever queue is empty, this is unnecessary
+        # but I don't feel like proving it so this stays
         return super().__bool__() or bool(self.buffered_requests)
 
     def __str__(self):
@@ -395,8 +398,7 @@ def main():
                 elif signal[0].isupper():
                     # device completion
                     if device:
-                        pcb = device.deque()[0]
-                        manager.add_to_ready_queue(pcb)
+                        manager.add_to_ready_queue(device.deque())
                     else:
                         print("Device queue is empty.")
                 else:
