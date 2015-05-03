@@ -1,7 +1,15 @@
 """
 Katherine Sullivan
-OS hw #2
+OS hw #3
 
+Todo:
+sys gen - prompt for total memory, max process size, page size
+A - prompt for process size, error check
+job pool
+K# command
+handle freeing memory when a process terminates
+Snapshot - m,j, page table
+paging
 """
 
 
