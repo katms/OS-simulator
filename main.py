@@ -10,6 +10,7 @@ K# command
 handle freeing memory when a process terminates
 Snapshot - m,j, page table
 paging
+memstart address hex, logical -> physical
 """
 
 
@@ -304,7 +305,6 @@ class Device_Manager():
 
         if output:  # skip if the queue was empty
             # shouldn't clash with the 24-line limit
-            # todo: wait where did it say this needs the total (it does need avg)
             print("Total CPU time: ", PCB.total_CPU_time, "Systems average: ", PCB.systems_average())
 
     def add_to_ready_queue(self, pcb):
@@ -378,9 +378,13 @@ def main():
         elif len(command) == 2 and (command[0] == 'S' and command[1] in SNAPSHOT_OPTIONS):
             # snapshot
             return True
-        elif len(command) >= 2 and command[0].lower() in DEVICE_PREFIXES and command[1:].isdigit():
-            # device name
-            return True
+        elif len(command) >= 2:
+            if command[1:].isdigit():
+                # device name
+                # Kill
+                return command[0].lower() in DEVICE_PREFIXES or 'K' == command[0]
+            else:
+                return False
         else:
             return False
 
@@ -394,9 +398,11 @@ def main():
         signal = verify_input("", is_command, unrecognized)
         # if there are >=10 devices of a single type, the name could be at least 3 characters
         if len(signal) >= 2:
-            # is_command only accepts two-char strings beginning S so it must be the right length
             if signal[0] == "S":
                 manager.snapshot(signal[1])
+
+            elif "K" == signal[0]:
+                print("Killing", signal[1:])
 
             else:
                 # device interrupt
