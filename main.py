@@ -3,7 +3,6 @@ Katherine Sullivan
 OS hw #3
 
 Todo:
-sys gen - prompt for total memory, max process size, page size
 A - prompt for process size, error check
 job pool
 K# command
@@ -11,6 +10,10 @@ handle freeing memory when a process terminates
 Snapshot - m,j, page table
 paging
 memstart address hex, logical -> physical
+
+Done:
+sys gen - prompt for total memory, max process size, page size
+
 """
 
 
@@ -230,6 +233,8 @@ class Device_Manager():
         for n in range(1, cds+1):
             self.cds[n] = Device_Queue('c'+str(n))
 
+        self.table = Page_Table()
+
     def new_process(self):
         self.add_to_ready_queue(PCB())
 
@@ -317,6 +322,24 @@ class Device_Manager():
         self.ready_queue.sort(key=lambda p: p.tau)
         if CPU_process is not None and CPU_process is not self.ready_queue[0]:
             CPU_process.preempt()
+
+
+class Page_Table():
+    def __init__(self):
+        total = get_int("Total memory: ", lambda m: m > 0)
+        self.total_memory = total
+        self.max_proc_size = get_int("Maximum process size: ", lambda s: s > 0)
+
+        def is_power2(n):
+            power = 1
+            while power <= n:
+                if power == n:
+                    return True
+                power *= 2
+            return False
+
+        self.page_size = get_int("Page size: ", lambda p: total%p == 0 and is_power2(p))
+
 
 
 DEVICE_PREFIXES = Device_Manager.DEVICE_PREFIXES
