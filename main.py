@@ -17,6 +17,7 @@ sys gen - prompt for total memory, max process size, page size
 """
 from math import ceil
 
+
 class PCB(object):
     _pid = 1
     # leaving these here for now but I might move alpha
@@ -161,19 +162,19 @@ class Disk(Device_Queue):
         cylinders = get_int("Cylinder: ", lambda c: c < self.cylinders)
         self.buffered_requests.append(request + (cylinders,))
 
-        if not self.queue: # this is the very first request
+        if not self.queue:  # this is the very first request
             self._fscan()
 
     def deque(self):
         if self.queue:  # if disk is already seeking
             self.head = self.queue[0][-1]
             result = super().deque()
-            if not self.queue: # that was the last request
+            if not self.queue:  # that was the last request
                 # freeze buffered_requests
                 self._fscan()
             return result
 
-        else: # assume both queues are empty
+        else:  # assume both queues are empty
             return super().deque()
 
     def _fscan(self):
@@ -247,7 +248,7 @@ class Device_Manager():
         self.max_proc_size = self.table.max_proc_size
 
     def new_process(self):
-        psize = get_int("Process size: ", lambda s: s>0)
+        psize = get_int("Process size: ", lambda s: s > 0)
         if psize <= self.max_proc_size:
             self.job_pool.append(PCB(psize, self.table))
             self.dispatch_jobs()
@@ -388,7 +389,7 @@ class Page_Table():
                 power *= 2
             return False
 
-        self.page_size = get_int("Page size: ", lambda p: total%p == 0 and is_power2(p))
+        self.page_size = get_int("Page size: ", lambda p: total % p == 0 and is_power2(p))
 
         self.npages = self.total_memory//self.page_size
         self.free_pages = self.npages
@@ -447,7 +448,7 @@ def main():
     # prevent any negative input, including '-0'
     def get_float(message, require=lambda f: True):
         def is_float(f):
-            return f.replace('.',"").isdigit() and f.count('.') <= 1
+            return f.replace('.', "").isdigit() and f.count('.') <= 1
         return float(verify_input(message, lambda f: is_float(f) and require(float(f))))
 
     PCB.ALPHA = get_float("History parameter (alpha): ", lambda a: 0 <= a <= 1)
