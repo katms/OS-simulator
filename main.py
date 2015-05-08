@@ -15,7 +15,7 @@ Done:
 sys gen - prompt for total memory, max process size, page size
 
 """
-
+from math import ceil
 
 class PCB(object):
     _pid = 1
@@ -28,7 +28,7 @@ class PCB(object):
     total_CPU_time = 0
     terminated = 0
 
-    def __init__(self, size):
+    def __init__(self, size, table):
         self.id = str(PCB._pid)
         PCB._pid += 1
 
@@ -41,6 +41,7 @@ class PCB(object):
         self._preempted = 0
 
         self.size = size
+        self.table = table
 
     def end_burst(self):
         # burst time must be positive
@@ -72,12 +73,17 @@ class PCB(object):
         PCB.total_CPU_time += self.CPU_time
         PCB.terminated += 1
 
+        self.kill()
+
     def preempt(self):
         self._preempted = get_int("Running process preempted. Length of CPU burst thus far: ")
 
     @staticmethod
     def systems_average():
         return PCB.total_CPU_time/PCB.terminated if PCB.total_CPU_time > 0 else 0.0
+
+    def kill(self):
+        self.table.free(self.size)
 
 
 class Device_Queue():
@@ -240,11 +246,11 @@ class Device_Manager():
 
     def new_process(self):
         psize = get_int("Process size: ", lambda s: s>0)
-        # todo: assign PID before or after query?
         if psize <= self.max_proc_size:
-            self.add_to_ready_queue(PCB(psize))
+            self.add_to_ready_queue(PCB(psize, self.table))
+            self.table.allocate(psize)
         else:
-            print("Maximum process size is {}. Rejected.".format(self.max_proc_size))
+            print("Rejected: Maximum process size is {}".format(self.max_proc_size))
 
     def terminate(self):
         # terminate current process
@@ -294,8 +300,11 @@ class Device_Manager():
             header = PCB.HEADER
             for process in self.ready_queue:
                 output += (str(process)+'\n')
+        elif 'j' == option:
+            pass
+        elif 'm' == option:
+            print("Free frames:", self.table.free_pages)
         else:
-
             for device_queue in self.get_all(option):
                 if device_queue:
                     output += str(device_queue)
@@ -347,6 +356,16 @@ class Page_Table():
 
         self.page_size = get_int("Page size: ", lambda p: total%p == 0 and is_power2(p))
 
+        self.npages = self.total_memory//self.page_size
+        self.free_pages = self.npages
+
+    def allocate(self, words):
+        pages = ceil(words/self.page_size)
+        self.free_pages -= pages
+
+    def free(self, words):
+        pages = ceil(words/self.page_size)
+        self.free_pages += pages
 
 
 DEVICE_PREFIXES = Device_Manager.DEVICE_PREFIXES
