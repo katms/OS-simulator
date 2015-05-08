@@ -316,9 +316,8 @@ class Device_Manager():
                 input("Press enter for more")  # 24th line
                 line_count = 0
 
-        if output:  # skip if the queue was empty
-            # shouldn't clash with the 24-line limit
-            print("Total CPU time: ", PCB.total_CPU_time, "Systems average: ", PCB.systems_average())
+        # shouldn't clash with the 24-line limit
+        print("Total CPU time: ", PCB.total_CPU_time, "Systems average: ", PCB.systems_average())
 
     def add_to_ready_queue(self, pcb):
         if self.ready_queue:
