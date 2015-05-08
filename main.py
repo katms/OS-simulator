@@ -249,30 +249,42 @@ class Device_Manager():
     def new_process(self):
         psize = get_int("Process size: ", lambda s: s>0)
         if psize <= self.max_proc_size:
-            process = PCB(psize, self.table)
-            if ceil(psize/self.table.page_size) <= self.table.free_pages:
-                self.add_to_ready_queue(process)
-                self.table.allocate(psize)
-            else:
-                self.job_pool.append(process)
-                self.sort_jobs()
+            self.job_pool.append(PCB(psize, self.table))
+            self.dispatch_jobs()
         else:
             print("Rejected: Maximum process size is {}".format(self.max_proc_size))
 
-    def sort_jobs(self):
-        """"Key to sort the job pool into two halves:
-        1 largest-first list of processes size <= free memory
-        2 others (any order)"""
+    def dispatch_jobs(self):
+        if not self.job_pool:
+            return
+
+        # todo: it really only needs to find one, doesn't it
+        """ Key to sort the job pool into two halves:
+            1 largest-first list of processes size <= free memory
+            2 others (any order)"""
         def cmp(p):
-            if p.size <= self.table.free_pages: return -p.size
-            else: return self.table.npages
+            if p.size/self.table.page_size <= self.table.free_pages:
+                return -p.size
+            else:
+                return self.table.npages
         self.job_pool.sort(key=cmp)
+
+        largest = self.job_pool[0]
+        if largest.size/self.table.page_size <= self.table.free_pages:
+            self.add_to_ready_queue(largest)
+            self.table.allocate(largest.size)
+            self.job_pool.pop(0)
+            # check again
+            self.dispatch_jobs()
+
+        else:  # no jobs can fit in memory
+            return
 
     def terminate(self):
         # terminate current process
         if self.ready_queue:
             self.ready_queue.pop(0).terminate()
-            self.sort_jobs()
+            self.dispatch_jobs()
         else:
             print("No processes running.")
 
