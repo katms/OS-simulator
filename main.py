@@ -74,8 +74,6 @@ class PCB(object):
         PCB.total_CPU_time += self.CPU_time
         PCB.terminated += 1
 
-        self.kill()
-
     def preempt(self):
         self._preempted = get_int("Running process preempted. Length of CPU burst thus far: ")
 
@@ -83,7 +81,7 @@ class PCB(object):
     def systems_average():
         return PCB.total_CPU_time/PCB.terminated if PCB.total_CPU_time > 0 else 0.0
 
-    def kill(self):
+    def __del__(self):
         self.table.free(self.size)
 
 
