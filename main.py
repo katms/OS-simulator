@@ -230,6 +230,8 @@ class Device_Manager():
         # the front is considered the process in the CPU
         self.ready_queue = []
 
+        self.job_pool = []
+
         # device queues are mapped to integers to ensure they print in numerical order
         # that was important right
         for n in range(1, printers+1):
@@ -247,15 +249,30 @@ class Device_Manager():
     def new_process(self):
         psize = get_int("Process size: ", lambda s: s>0)
         if psize <= self.max_proc_size:
-            self.add_to_ready_queue(PCB(psize, self.table))
-            self.table.allocate(psize)
+            process = PCB(psize, self.table)
+            if ceil(psize/self.table.page_size) <= self.table.free_pages:
+                self.add_to_ready_queue(process)
+                self.table.allocate(psize)
+            else:
+                self.job_pool.append(process)
+                self.sort_jobs()
         else:
             print("Rejected: Maximum process size is {}".format(self.max_proc_size))
+
+    def sort_jobs(self):
+        """"Key to sort the job pool into two halves:
+        1 largest-first list of processes size <= free memory
+        2 others (any order)"""
+        def cmp(p):
+            if p.size <= self.table.free_pages: return -p.size
+            else: return self.table.npages
+        self.job_pool.sort(key=cmp)
 
     def terminate(self):
         # terminate current process
         if self.ready_queue:
             self.ready_queue.pop(0).terminate()
+            self.sort_jobs()
         else:
             print("No processes running.")
 
@@ -296,12 +313,17 @@ class Device_Manager():
             option = letter_of("Select {}: ".format(", ".join(SNAPSHOT_OPTIONS)), SNAPSHOT_OPTIONS)
 
         output = ""
-        if option == 'r':
+
+        def print_queue(queue):
+            # print a list of only PCBs
+            nonlocal header, output
             header = PCB.HEADER
-            for process in self.ready_queue:
+            for process in queue:
                 output += (str(process)+'\n')
+        if option == 'r':
+            print_queue(self.ready_queue)
         elif 'j' == option:
-            pass
+            print_queue(self.job_pool)
         elif 'm' == option:
             print("Free frames:", self.table.free_pages)
         else:
