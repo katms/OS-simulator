@@ -287,7 +287,7 @@ class Device_Manager():
         """output all processes of some given set of queues"""
 
         if option is None:
-            option = letter_of("Select r, p, d, c: ", SNAPSHOT_OPTIONS)
+            option = letter_of("Select {}: ".format(", ".join(SNAPSHOT_OPTIONS)), SNAPSHOT_OPTIONS)
 
         output = ""
         if option == 'r':
@@ -351,7 +351,7 @@ class Page_Table():
 
 
 DEVICE_PREFIXES = Device_Manager.DEVICE_PREFIXES
-SNAPSHOT_OPTIONS = "r"+DEVICE_PREFIXES
+SNAPSHOT_OPTIONS = "rjm"+DEVICE_PREFIXES
 
 
 # keep asking until the user provides acceptable input
