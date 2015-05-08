@@ -23,12 +23,12 @@ class PCB(object):
     ALPHA = None
     DEFAULT_TAU = None
 
-    HEADER = "\t".join(("PID", "Total", "Avg"))
+    HEADER = "\t".join(("PID", "Total", "Avg", "Size"))
 
     total_CPU_time = 0
     terminated = 0
 
-    def __init__(self):
+    def __init__(self, size):
         self.id = str(PCB._pid)
         PCB._pid += 1
 
@@ -39,6 +39,8 @@ class PCB(object):
 
         # for CPU bursts that get preempted
         self._preempted = 0
+
+        self.size = size
 
     def end_burst(self):
         # burst time must be positive
@@ -58,7 +60,7 @@ class PCB(object):
     def __str__(self):
         # make sure average fits in its column
         rounded = round(self.average_burst, 2)
-        return "\t".join((self.id, str(self.CPU_time), str(rounded)))
+        return "\t".join((self.id, str(self.CPU_time), str(rounded), str(self.size)))
 
     def terminate(self):
         # do not make this the destructor, it would get called for every process on Ctrl-C
@@ -234,9 +236,15 @@ class Device_Manager():
             self.cds[n] = Device_Queue('c'+str(n))
 
         self.table = Page_Table()
+        self.max_proc_size = self.table.max_proc_size
 
     def new_process(self):
-        self.add_to_ready_queue(PCB())
+        psize = get_int("Process size: ", lambda s: s>0)
+        # todo: assign PID before or after query?
+        if psize <= self.max_proc_size:
+            self.add_to_ready_queue(PCB(psize))
+        else:
+            print("Maximum process size is {}. Rejected.".format(self.max_proc_size))
 
     def terminate(self):
         # terminate current process
@@ -328,7 +336,7 @@ class Page_Table():
     def __init__(self):
         total = get_int("Total memory: ", lambda m: m > 0)
         self.total_memory = total
-        self.max_proc_size = get_int("Maximum process size: ", lambda s: s > 0)
+        self.max_proc_size = get_int("Maximum process size: ", lambda s: 0 < s <= total)
 
         def is_power2(n):
             power = 1
