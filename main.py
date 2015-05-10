@@ -4,7 +4,6 @@ OS hw #3
 
 Todo:
 K# command
-memstart address hex, logical -> physical
 
 Done:
 sys gen - prompt for total memory, max process size, page size
@@ -13,6 +12,7 @@ job pool
 Snapshot - m,j, page table
 paging
 handle freeing memory when a process terminates
+memstart address hex, logical -> physical
 """
 from math import ceil
 
@@ -87,18 +87,23 @@ class PCB(object):
     @property
     def pages(self):
         # print page table
-        res = "   L | P\n"
+        res = "   L   P\n"
         for i in range(len(self.table)):
             # logical, physical
             res += "   {} | {}\n".format(i, self.table[i].index)
         return res
 
+    def lookup(self, address):
+        size = self.table[0].size
+        page_number = address//size
+        offset = address%size
+        return self.table[page_number].address(offset)
+
 
 class Device_Queue():
     """Manages the process queue for a single device."""
 
-    # todo: Logc & Phys
-    HEADER = "\t".join(("Filename", "Memstart", "R/W", "Length"))
+    HEADER = "\t".join(("File", "Logc", "Phys", "R/W", "Length"))
 
     def __init__(self, name):
         # so far the name's only real purpose is in determining if this is a printer or a disk
@@ -117,8 +122,18 @@ class Device_Queue():
     def file_info(self, process):
         # prompt for additional arguments
         filename = input("Filename: ")
-        memstart = verify_input("Starting memory address: ", lambda i: i.isdigit())
-        # todo: logical and physical addresses
+
+        def is_hex(n):
+            for d in n:
+                if d not in "aAbBcCdDeEfF0123456789":
+                    print(d)
+                    return False
+            return True
+
+        logical = verify_input("Logical memory address: ", lambda i: is_hex(i) and int(i,16) < process.size)
+        dec = int(logical, 16)
+        physical = process.lookup(int(logical,16))
+        print("Physical address:",physical)
 
         # can only write to a printer
         if "p" in self.name:
@@ -130,7 +145,7 @@ class Device_Queue():
             length = verify_input("File length: ", lambda i: i.isdigit())
         else:
             length = "-"
-        return process, filename, memstart, rw, length
+        return process, filename, logical, physical, rw, length
 
     def __bool__(self):
         return bool(self.queue)
@@ -410,6 +425,11 @@ class Page_Table():
             def __init__(this, index):
                 this.owner = None
                 this.index = index
+                this.size = self.page_size
+
+            def address(self, offset):
+                # drop preceding '0x'
+                return hex((self.size*self.index)+offset)[2:]
 
             def __str__(self):
                 return str(self.index)+'\t'+str(self.owner)
@@ -476,9 +496,9 @@ def letter_of(prompt, master_string):
 
 # print I/O requests exactly like this for both disks and other devices
 def aligned_string(process):
-    #       PCB                  Filename           Memstart            R/W         length
-    return str(process[0])+"\t"+process[1]+"\t\t"+process[2]+"\t\t"+process[3]+"\t"+process[4]
-
+    #       PCB                  Filename       Logc            R/W         length
+    #return str(process[0])+"\t"+process[1]+"\t"+process[2]+"\t"+process[3]+"\t"+process[4]
+    return '\t'.join(map(str, process))
 
 def main():
 
