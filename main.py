@@ -3,17 +3,16 @@ Katherine Sullivan
 OS hw #3
 
 Todo:
-A - prompt for process size, error check
-job pool
 K# command
-handle freeing memory when a process terminates
-Snapshot - m,j, page table
-paging
 memstart address hex, logical -> physical
 
 Done:
 sys gen - prompt for total memory, max process size, page size
-
+A - prompt for process size, error check
+job pool
+Snapshot - m,j, page table
+paging
+handle freeing memory when a process terminates
 """
 from math import ceil
 
@@ -82,7 +81,6 @@ class PCB(object):
         return PCB.total_CPU_time/PCB.terminated if PCB.total_CPU_time > 0 else 0.0
 
     def __del__(self):
-        #self.table.free(self.size)
         for f in self.table:
             f.free()
 
@@ -99,7 +97,7 @@ class PCB(object):
 class Device_Queue():
     """Manages the process queue for a single device."""
 
-    # modified header to try to get it to fit the console
+    # todo: Logc & Phys
     HEADER = "\t".join(("Filename", "Memstart", "R/W", "Length"))
 
     def __init__(self, name):
@@ -120,6 +118,8 @@ class Device_Queue():
         # prompt for additional arguments
         filename = input("Filename: ")
         memstart = verify_input("Starting memory address: ", lambda i: i.isdigit())
+        # todo: logical and physical addresses
+
         # can only write to a printer
         if "p" in self.name:
             rw = "w"
@@ -242,6 +242,8 @@ class Device_Manager():
 
         self.job_pool = []
 
+        # todo: table that tracks process locations by PID
+
         # device queues are mapped to integers to ensure they print in numerical order
         # that was important right
         for n in range(1, printers+1):
@@ -347,7 +349,6 @@ class Device_Manager():
             for process in queue:
                 output += (str(process)+'\n')
                 if option == 'r': # skip for job pool processes
-                    #print(process.pages)
                     output += process.pages
         elif 'm' == option:
             header = "N\tFree"
@@ -420,14 +421,6 @@ class Page_Table():
 
         self.frames = [Frame(i) for i in range(self.npages)]
         self.free_frames = self.frames.copy()
-
-    """def allocate(self, words):
-        pages = ceil(words/self.page_size)
-        self.free_pages -= pages
-
-    def free(self, words):
-        pages = ceil(words/self.page_size)
-        self.free_pages += pages"""
 
     def allocate(self, process):
         needed = ceil(process.size/self.page_size)
