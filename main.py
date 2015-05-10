@@ -81,8 +81,7 @@ class PCB(object):
         return PCB.total_CPU_time/PCB.terminated if PCB.total_CPU_time > 0 else 0.0
 
     def __del__(self):
-        for f in self.table:
-            f.free()
+        self.kill()
 
     def __eq__(self, other):
         return other == self.id
@@ -101,6 +100,11 @@ class PCB(object):
         page_number = address//size
         offset = address%size
         return self.table[page_number].address(offset)
+
+    def kill(self):
+        # __del__ doesn't work on Devices and this is easier than fixing that
+        for f in self.table:
+            f.free()
 
 
 class Device_Queue():
@@ -171,6 +175,14 @@ class Device_Queue():
             res += item
         return res
 
+    def remove(self, id):
+        # assume pid exists in queue
+        for i in range(len(self.queue)):
+            if self.queue[i][0].id == id:
+                self.queue[i][0].kill()
+                del self.queue[i]
+                return True
+
 
 class Disk(Device_Queue):
     """Device queue that implements FSCAN"""
@@ -231,6 +243,7 @@ class Disk(Device_Queue):
         def align_with_cylinder(process):
             return aligned_string(process) + '\t' + str(process[-1]) + '\n'+process[0].pages
 
+        # fixme: this now prints cylinders twice
         if self.queue:
             res += "Seeking:\n"
             for p in self.queue:
@@ -243,6 +256,16 @@ class Disk(Device_Queue):
                 line = align_with_cylinder(b)
                 res += line
         return res
+
+    def remove(self, id):
+        if not super().remove(id):
+            for i in range(len(self.buffered_requests)):
+                if self.buffered_requests[i][0].id == id:
+                    self.buffered_requests[i][0].kill()
+                    del self.buffered_requests[i]
+                    return True
+        elif not self.queue:  # if Disk just killed the only request being serviced
+            self._fscan()
 
 
 # put in a class primarily because using globals was bothering me
@@ -584,6 +607,7 @@ def main():
                     if manager.ready_queue:
                         current_process = manager.ready_queue.pop(0)
                         current_process.end_burst()
+                        manager.pid_table[current_process.id] = device
                         device.enqueue(current_process)
                     else:
                         print("No process in CPU.")
