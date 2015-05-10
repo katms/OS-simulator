@@ -149,8 +149,8 @@ class Device_Queue():
         # this combination of tabs works on at least three mediums, including eniac
         res = ('-'*4)+self.name+'\n'
         for process in self.queue:
-            line = aligned_string(process)+'\n'
-            res += line
+            item = aligned_string(process)+'\n'+process[0].pages
+            res += item
         return res
 
 
@@ -211,7 +211,7 @@ class Disk(Device_Queue):
         res = ('-'*4)+self.name+'\t'+"#Cylinders: {}".format(self.cylinders)+'\n'
 
         def align_with_cylinder(process):
-            return aligned_string(process) + '\t' + str(process[-1]) + '\n'
+            return aligned_string(process) + '\t' + str(process[-1]) + '\n'+process[0].pages
 
         if self.queue:
             res += "Seeking:\n"
@@ -346,13 +346,12 @@ class Device_Manager():
             queue = self.ready_queue if option == 'r' else self.job_pool
             for process in queue:
                 output += (str(process)+'\n')
-                if option == 'r':
+                if option == 'r': # skip for job pool processes
                     #print(process.pages)
-                    output += process.pages+'\n'
+                    output += process.pages
         elif 'm' == option:
             header = "N\tFree"
             output = str(self.table)
-            #print("Free frames:", self.table.free_pages)
         else:
             for device_queue in self.get_all(option):
                 if device_queue:
