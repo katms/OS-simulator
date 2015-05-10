@@ -84,6 +84,9 @@ class PCB(object):
         for f in self.table:
             f.free()
 
+    def __eq__(self, other):
+        return other == self.id
+
     @property
     def pages(self):
         # print page table
@@ -258,6 +261,7 @@ class Device_Manager():
         self.job_pool = []
 
         # todo: table that tracks process locations by PID
+        self.pid_table = {}
 
         # device queues are mapped to integers to ensure they print in numerical order
         # that was important right
@@ -276,7 +280,9 @@ class Device_Manager():
     def new_process(self):
         psize = get_int("Process size: ", lambda s: s > 0)
         if psize <= self.max_proc_size:
-            self.job_pool.append(PCB(psize))
+            new = PCB(psize)
+            self.job_pool.append(new)
+            self.pid_table[new.id] = self.job_pool
             self.dispatch_jobs()
         else:
             print("Rejected: Maximum process size is {}".format(self.max_proc_size))
@@ -393,6 +399,7 @@ class Device_Manager():
         print("Total CPU time: ", PCB.total_CPU_time, "Systems average: ", PCB.systems_average())
 
     def add_to_ready_queue(self, pcb):
+        self.pid_table[pcb.id] = self.ready_queue
         if self.ready_queue:
             CPU_process = self.ready_queue[0]
         else:
@@ -402,6 +409,17 @@ class Device_Manager():
         self.ready_queue.sort(key=lambda p: p.tau)
         if CPU_process is not None and CPU_process is not self.ready_queue[0]:
             CPU_process.preempt()
+
+    def kill(self, id):
+        if id in self.pid_table:
+            dispatch = (self.pid_table[id] is self.ready_queue)
+            self.pid_table[id].remove(id)
+            self.pid_table.pop(id)
+            if dispatch:
+                self.dispatch_jobs()
+            return id
+        else:
+            return None
 
 
 class Page_Table():
@@ -547,7 +565,8 @@ def main():
                 manager.snapshot(signal[1])
 
             elif "K" == signal[0]:
-                print("Killing", signal[1:])
+                if manager.kill(signal[1:]) is None:
+                    print("PID {} not found".format(signal[1:]))
 
             else:
                 # device interrupt
