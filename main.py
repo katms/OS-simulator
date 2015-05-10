@@ -163,15 +163,9 @@ class Device_Queue():
             return ""
         # print every process in order, in columns
 
-        # I'm just going to assume this is aligned with the header
-        # because ensuring it would be really complicated
-        # I tried
-        # and then I noticed the same code aligns differently depending where I run it
-        # and then I gave up
-        # this combination of tabs works on at least three mediums, including eniac
         res = ('-'*4)+self.name+'\n'
         for process in self.queue:
-            item = aligned_string(process)+'\n'+process[0].pages
+            item = aligned_string(process)
             res += item
         return res
 
@@ -240,20 +234,16 @@ class Disk(Device_Queue):
             return super().__str__()
         res = ('-'*4)+self.name+'\t'+"#Cylinders: {}".format(self.cylinders)+'\n'
 
-        def align_with_cylinder(process):
-            return aligned_string(process) + '\t' + str(process[-1]) + '\n'+process[0].pages
-
-        # fixme: this now prints cylinders twice
         if self.queue:
             res += "Seeking:\n"
             for p in self.queue:
-                line = align_with_cylinder(p)
+                line = aligned_string(p)
                 res += line
 
         if self.buffered_requests:
             res += "Buffered:\n"
             for b in self.buffered_requests:
-                line = align_with_cylinder(b)
+                line = aligned_string(b)
                 res += line
         return res
 
@@ -283,7 +273,6 @@ class Device_Manager():
 
         self.job_pool = []
 
-        # todo: table that tracks process locations by PID
         self.pid_table = {}
 
         # device queues are mapped to integers to ensure they print in numerical order
@@ -403,7 +392,7 @@ class Device_Manager():
                     output += str(device_queue)
             header = PCB.HEADER+'\t'+Device_Queue.HEADER
             if 'd' == option:
-                header += "\t"+"Cylinder"
+                header += "\t"+"Cyl"
 
         line_count = 0
         MAX_LINES = 23
@@ -534,12 +523,10 @@ def letter_of(prompt, master_string):
         return len(ch) == 1 and ch.lower() in master_string.lower()
     return verify_input(prompt, letter).lower()
 
-
+# todo: tables
 # print I/O requests exactly like this for both disks and other devices
 def aligned_string(process):
-    #       PCB                  Filename       Logc            R/W         length
-    #return str(process[0])+"\t"+process[1]+"\t"+process[2]+"\t"+process[3]+"\t"+process[4]
-    return '\t'.join(map(str, process))
+    return '\t'.join(map(str, process)) + '\n' + process[0].pages
 
 def main():
 
