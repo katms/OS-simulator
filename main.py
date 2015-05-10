@@ -398,16 +398,16 @@ class Page_Table():
         self.npages = self.total_memory//self.page_size
         class Frame():
             def __init__(this, index):
-                this.used = False
+                this.owner = None
                 this.index = index
 
             def __str__(self):
-                return str(self.index)+'\t'+str(not self.used)
+                return str(self.index)+'\t'+str(self.owner)
 
             def free(this):
-                this.used = False
+                this.owner = None
                 # update free frame list
-                self.free_frames = [f for f in self.frames if f.used]
+                self.free_frames = [f for f in self.frames if f.owner is None]
 
         self.frames = [Frame(i) for i in range(self.npages)]
         self.free_frames = self.frames.copy()
@@ -424,7 +424,7 @@ class Page_Table():
         needed = ceil(process.size/self.page_size)
         pages, self.free_frames = self.free_frames[:needed], self.free_frames[needed:]
         for p in pages:
-            p.used = True
+            p.owner = process.id
         process.table = pages
 
     def __str__(self):
