@@ -29,7 +29,7 @@ class PCB(object):
     total_CPU_time = 0
     terminated = 0
 
-    def __init__(self, size, table):
+    def __init__(self, size):
         self.id = str(PCB._pid)
         PCB._pid += 1
 
@@ -42,7 +42,7 @@ class PCB(object):
         self._preempted = 0
 
         self.size = size
-        self.table = table
+        self.table = []
 
     def end_burst(self):
         # burst time must be positive
@@ -82,7 +82,9 @@ class PCB(object):
         return PCB.total_CPU_time/PCB.terminated if PCB.total_CPU_time > 0 else 0.0
 
     def __del__(self):
-        self.table.free(self.size)
+        #self.table.free(self.size)
+        for f in self.table:
+            f.free()
 
 
 class Device_Queue():
@@ -248,7 +250,7 @@ class Device_Manager():
     def new_process(self):
         psize = get_int("Process size: ", lambda s: s > 0)
         if psize <= self.max_proc_size:
-            self.job_pool.append(PCB(psize, self.table))
+            self.job_pool.append(PCB(psize))
             self.dispatch_jobs()
         else:
             print("Rejected: Maximum process size is {}".format(self.max_proc_size))
@@ -258,6 +260,7 @@ class Device_Manager():
             return
 
         # todo: it really only needs to find one, doesn't it
+        # todo: also starvation...
         """ Key to sort the job pool into two halves:
             1 largest-first list of processes size <= free memory
             2 others (any order)"""
@@ -271,7 +274,7 @@ class Device_Manager():
         largest = self.job_pool[0]
         if largest.size/self.table.page_size <= self.table.free_pages:
             self.add_to_ready_queue(largest)
-            self.table.allocate(largest.size)
+            self.table.allocate(largest)
             self.job_pool.pop(0)
             # check again
             self.dispatch_jobs()
@@ -324,6 +327,7 @@ class Device_Manager():
             option = letter_of("Select {}: ".format(", ".join(SNAPSHOT_OPTIONS)), SNAPSHOT_OPTIONS)
 
         output = ""
+        header = ""
 
         def print_queue(queue):
             # print a list of only PCBs
@@ -336,7 +340,9 @@ class Device_Manager():
         elif 'j' == option:
             print_queue(self.job_pool)
         elif 'm' == option:
-            print("Free frames:", self.table.free_pages)
+            header = "N\tFree"
+            output = str(self.table)
+            #print("Free frames:", self.table.free_pages)
         else:
             for device_queue in self.get_all(option):
                 if device_queue:
@@ -390,15 +396,50 @@ class Page_Table():
         self.page_size = get_int("Page size: ", lambda p: total % p == 0 and is_power2(p))
 
         self.npages = self.total_memory//self.page_size
-        self.free_pages = self.npages
+        class Frame():
+            def __init__(this, index):
+                this.used = False
+                this.index = index
 
-    def allocate(self, words):
+            def __str__(self):
+                return str(self.index)+'\t'+str(not self.used)
+
+            def free(this):
+                this.used = False
+                # update free frame list
+                self.free_frames = [f for f in self.frames]
+
+        self.frames = [Frame(i) for i in range(self.npages)]
+        self.free_frames = self.frames.copy()
+
+    """def allocate(self, words):
         pages = ceil(words/self.page_size)
         self.free_pages -= pages
 
     def free(self, words):
         pages = ceil(words/self.page_size)
-        self.free_pages += pages
+        self.free_pages += pages"""
+
+    def allocate(self, process):
+        needed = ceil(process.size/self.page_size)
+        pages, self.free_frames = self.free_frames[:needed], self.free_frames[needed:]
+        for p in pages:
+            p.used = True
+        process.table = pages
+
+    def __str__(self):
+        res = ""
+        for f in self.frames:
+            res += str(f) + '\n'
+        # free frame list
+        res += "Free: "
+        res += str([f.index for f in self.free_frames])
+        res += '\n'
+        return res
+
+    @property
+    def free_pages(self):
+        return len(self.free_frames)
 
 
 DEVICE_PREFIXES = Device_Manager.DEVICE_PREFIXES
