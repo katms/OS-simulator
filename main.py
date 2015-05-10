@@ -407,7 +407,7 @@ class Page_Table():
             def free(this):
                 this.used = False
                 # update free frame list
-                self.free_frames = [f for f in self.frames]
+                self.free_frames = [f for f in self.frames if f.used]
 
         self.frames = [Frame(i) for i in range(self.npages)]
         self.free_frames = self.frames.copy()
