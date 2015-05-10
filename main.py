@@ -86,6 +86,15 @@ class PCB(object):
         for f in self.table:
             f.free()
 
+    @property
+    def pages(self):
+        # print page table
+        res = "   L | P\n"
+        for i in range(len(self.table)):
+            # logical, physical
+            res += "   {} | {}\n".format(i, self.table[i].index)
+        return res
+
 
 class Device_Queue():
     """Manages the process queue for a single device."""
@@ -332,13 +341,14 @@ class Device_Manager():
         def print_queue(queue):
             # print a list of only PCBs
             nonlocal header, output
+        if option in 'rj':
             header = PCB.HEADER
+            queue = self.ready_queue if option == 'r' else self.job_pool
             for process in queue:
                 output += (str(process)+'\n')
-        if option == 'r':
-            print_queue(self.ready_queue)
-        elif 'j' == option:
-            print_queue(self.job_pool)
+                if option == 'r':
+                    #print(process.pages)
+                    output += process.pages+'\n'
         elif 'm' == option:
             header = "N\tFree"
             output = str(self.table)
