@@ -436,10 +436,6 @@ class Device_Manager():
 
 class Page_Table():
     def __init__(self):
-        total = get_int("Total memory: ", lambda m: m > 0)
-        self.total_memory = total
-        self.max_proc_size = get_int("Maximum process size: ", lambda s: 0 < s <= total)
-
         def is_power2(n):
             power = 1
             while power <= n:
@@ -448,8 +444,14 @@ class Page_Table():
                 power *= 2
             return False
 
-        page_size = get_int("Page size: ", lambda p: total % p == 0 and is_power2(p))
+
+        page_size = get_int("Page size: ", is_power2)
         self.page_size = page_size
+
+
+        total = get_int("Total memory: ", lambda m: m > 0 and m%page_size==0)
+        self.total_memory = total
+        self.max_proc_size = get_int("Maximum process size: ", lambda s: 0 < s <= total)
 
         self.npages = self.total_memory//self.page_size
 
