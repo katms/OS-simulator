@@ -448,14 +448,23 @@ class Page_Table():
                 power *= 2
             return False
 
-        self.page_size = get_int("Page size: ", lambda p: total % p == 0 and is_power2(p))
+        page_size = get_int("Page size: ", lambda p: total % p == 0 and is_power2(p))
+        self.page_size = page_size
 
         self.npages = self.total_memory//self.page_size
+
+        def update_free_frame_list():
+            # update free frame list
+            self.free_frames = [f for f in self.frames if f.owner is None]
+
         class Frame():
-            def __init__(this, index):
-                this.owner = None
-                this.index = index
-                this.size = self.page_size
+            def __init__(self, index):
+                self.owner = None
+                self.index = index
+
+            @property
+            def size(self):
+                return page_size
 
             def address(self, offset):
                 # drop preceding '0x'
@@ -464,10 +473,9 @@ class Page_Table():
             def __str__(self):
                 return str(self.index)+'\t'+str(self.owner)
 
-            def free(this):
-                this.owner = None
-                # update free frame list
-                self.free_frames = [f for f in self.frames if f.owner is None]
+            def free(self):
+                self.owner = None
+                update_free_frame_list()
 
         self.frames = [Frame(i) for i in range(self.npages)]
         self.free_frames = self.frames.copy()
