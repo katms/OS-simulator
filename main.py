@@ -138,7 +138,6 @@ class Device_Queue():
         def is_hex(n):
             for d in n:
                 if d not in "aAbBcCdDeEfF0123456789":
-                    print(d)
                     return False
             return True
 
