@@ -84,7 +84,12 @@ class PCB(object):
         self.kill()
 
     def __eq__(self, other):
-        return other == self.id
+        if type(other) == PCB:
+            return self.id == other.id
+        elif type(other) == int:
+            return str(other) == self.id
+        else:  # assume id is a string
+            return other == self.id
 
     @property
     def pages(self):
