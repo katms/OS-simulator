@@ -308,23 +308,17 @@ class Device_Manager():
         if not self.job_pool:
             return
 
-        # todo: it really only needs to find one, doesn't it
-        # todo: also starvation...
-        """ Key to sort the job pool into two halves:
-            1 largest-first list of processes size <= free memory
-            2 others (any order)"""
-        def cmp(p):
+        def largest_fit(p):
             if p.size/self.table.page_size <= self.table.free_pages:
-                return -p.size
-            else:
-                return self.table.npages
-        self.job_pool.sort(key=cmp)
+                return p.size
+            else:  # cannot fit
+                return -1
 
-        largest = self.job_pool[0]
+        largest = max(self.job_pool, key=largest_fit)
         if largest.size/self.table.page_size <= self.table.free_pages:
             self.add_to_ready_queue(largest)
             self.table.allocate(largest)
-            self.job_pool.pop(0)
+            self.job_pool.remove(largest)
             # check again
             self.dispatch_jobs()
 
