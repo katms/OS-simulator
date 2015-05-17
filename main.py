@@ -381,7 +381,7 @@ class Device_Manager():
                 if option == 'r': # skip for job pool processes
                     output += process.pages
         elif 'm' == option:
-            header = "N\tFree"
+            header = "N\tOwner"
             output = str(self.table)
         else:
             for device_queue in self.get_all(option):
