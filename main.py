@@ -108,6 +108,7 @@ class PCB(object):
         # __del__ doesn't work on Devices and this is easier than fixing that
         for f in self.table:
             f.free()
+        self.table.clear()
 
 
 class Device_Queue():
