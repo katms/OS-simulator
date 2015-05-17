@@ -2,9 +2,6 @@
 Katherine Sullivan
 OS hw #3
 
-Todo:
-K# command
-
 Done:
 sys gen - prompt for total memory, max process size, page size
 A - prompt for process size, error check
@@ -13,6 +10,7 @@ Snapshot - m,j, page table
 paging
 handle freeing memory when a process terminates
 memstart address hex, logical -> physical
+K# command
 """
 from math import ceil
 
