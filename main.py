@@ -370,9 +370,6 @@ class Device_Manager():
         output = ""
         header = ""
 
-        def print_queue(queue):
-            # print a list of only PCBs
-            nonlocal header, output
         if option in 'rj':
             header = PCB.HEADER
             queue = self.ready_queue if option == 'r' else self.job_pool
